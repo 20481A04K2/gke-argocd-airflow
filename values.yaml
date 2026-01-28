@@ -1,0 +1,92 @@
+airflow:
+  # 1. Disable internal Postgres
+  postgresql:
+    enabled: false
+
+  # 2. Database Connection (Cloud SQL)
+  # Replace with your actual credentials and connection name
+  data:
+    metadataConnection:
+      user: "airflow_user"
+      pass: "your_password"
+      protocol: "postgresql"
+      host: "127.0.0.1" # Connecting via Cloud SQL Proxy sidecar
+      port: 5432
+      db: "airflow_db"
+
+  # 3. ArgoCD Compatibility (Disable Helm Hooks for Jobs)
+  createUserJob:
+    useHelmHooks: false
+  migrateDatabaseJob:
+    useHelmHooks: false
+
+  # 4. GCS for DAGs (Using GCS Fuse CSI Driver)
+  dags:
+    persistence:
+      enabled: false # We will use extraVolumes instead
+    path: /opt/airflow/dags
+
+  # Inject GCS Fuse sidecar and mount the bucket
+  scheduler:
+    podAnnotations:
+      gke-gcsfuse/volumes: "true"
+    extraVolumes:
+      - name: gcs-dags
+        csi:
+          driver: gcsfuse.csi.storage.gke.io
+          volumeAttributes:
+            bucketName: "your-dags-bucket"
+            mountOptions: "implicit-dirs"
+    extraVolumeMounts:
+      - name: gcs-dags
+        mountPath: /opt/airflow/dags
+        readOnly: true
+    # Cloud SQL Proxy Sidecar for Scheduler
+    extraContainers:
+      - name: cloud-sql-proxy
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+        args:
+          - "--port=5432"
+          - "project-id:region:instance-name"
+        securityContext:
+          runAsNonRoot: true
+
+  webserver:
+    podAnnotations:
+      gke-gcsfuse/volumes: "true"
+    extraVolumes:
+      - name: gcs-dags
+        csi:
+          driver: gcsfuse.csi.storage.gke.io
+          volumeAttributes:
+            bucketName: "your-dags-bucket"
+    extraVolumeMounts:
+      - name: gcs-dags
+        mountPath: /opt/airflow/dags
+    extraContainers:
+      - name: cloud-sql-proxy
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+        args: ["--port=5432", "project-id:region:instance-name"]
+
+  workers:
+    podAnnotations:
+      gke-gcsfuse/volumes: "true"
+    extraVolumes:
+      - name: gcs-dags
+        csi:
+          driver: gcsfuse.csi.storage.gke.io
+          volumeAttributes:
+            bucketName: "your-dags-bucket"
+    extraVolumeMounts:
+      - name: gcs-dags
+        mountPath: /opt/airflow/dags
+    extraContainers:
+      - name: cloud-sql-proxy
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+        args: ["--port=5432", "project-id:region:instance-name"]
+
+  # 5. Workload Identity Integration
+  serviceAccount:
+    create: true
+    annotations:
+      iam.gke.io/gcp-service-account: "airflow-gsa@project-id.iam.gserviceaccount.com"
