@@ -1,0 +1,125 @@
+airflow:
+  # 1. Disable internal DB/Redis
+  postgresql:
+    enabled: false
+  redis:
+    enabled: false
+
+  # 2. Database Connection (Using ExternalSecret created in templates/)
+  data:
+    metadataSecretName: "airflow-db-secrets"
+
+  # 3. Component Configs
+  executor: "KubernetesExecutor"
+  
+  images:
+    airflow:
+      repository: "apache/airflow"
+      tag: "2.10.0"
+
+  # Shared Configuration for GCS Fuse and Cloud SQL Proxy
+  # Used by Scheduler, Webserver, and Workers
+  common:
+    podAnnotations:
+      gke-gcsfuse/volumes: "true"
+    extraVolumes:
+      - name: gcs-dags
+        csi:
+          driver: gcsfuse.csi.storage.gke.io
+          volumeAttributes:
+            bucketName: "dag-bucket213"
+            mountOptions: "implicit-dirs"
+    extraVolumeMounts:
+      - name: gcs-dags
+        mountPath: /opt/airflow/dags
+        readOnly: true
+    extraContainers:
+      - name: cloud-sql-proxy
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+        args:
+          - "--port=5432"
+          - "gcp-another-pro:us-east4:vamsi"
+        securityContext:
+          runAsNonRoot: true
+
+  webserver:
+    podAnnotations:
+      gke-gcsfuse/volumes: "true"
+    extraVolumes:
+      - name: gcs-dags
+        csi:
+          driver: gcsfuse.csi.storage.gke.io
+          volumeAttributes:
+            bucketName: "dag-bucket213"
+    extraVolumeMounts:
+      - name: gcs-dags
+        mountPath: /opt/airflow/dags
+    extraContainers:
+      - name: cloud-sql-proxy
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+        args: ["--port=5432", "gcp-another-pro:us-east4:vamsi"]
+    waitForMigrations:
+      enabled: false
+    service:
+      type: LoadBalancer
+      annotations:
+        networking.gke.io/load-balancer-type: "Internal"
+      ports:
+        - name: airflow-ui
+          port: 8080
+
+  scheduler:
+    podAnnotations:
+      gke-gcsfuse/volumes: "true"
+    extraVolumes:
+      - name: gcs-dags
+        csi:
+          driver: gcsfuse.csi.storage.gke.io
+          volumeAttributes:
+            bucketName: "dag-bucket213"
+    extraVolumeMounts:
+      - name: gcs-dags
+        mountPath: /opt/airflow/dags
+    extraContainers:
+      - name: cloud-sql-proxy
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+        args: ["--port=5432", "gcp-another-pro:us-east4:vamsi"]
+    waitForMigrations:
+      enabled: false
+
+  # KubernetesExecutor creates pods dynamically, they also need the GCS mount
+  workers:
+    waitForMigrations:
+      enabled: false
+
+  # 4. ArgoCD Specific Fixes
+  createUserJob:
+    useHelmHooks: false
+  migrateDatabaseJob:
+    useHelmHooks: false
+
+  # 5. DAG Storage (Persistence disabled because we use GCS Fuse CSI)
+  dags:
+    gitSync:
+      enabled: false
+    persistence:
+      enabled: false
+
+  # 6. Workload Identity & RBAC
+  rbac:
+    create: true
+  serviceAccount:
+    create: true
+    annotations:
+      iam.gke.io/gcp-service-account: "airflow-gsa@gcp-another-pro.iam.gserviceaccount.com"
+
+  logs:
+    persistence:
+      enabled: true
+      size: 50Gi
+      storageClassName: "standard-rwo"
+
+  config:
+    core:
+      load_examples: "False"
+      dags_folder: "/opt/airflow/dags"
