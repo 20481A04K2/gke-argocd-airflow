@@ -18,7 +18,7 @@ airflow:
       tag: "2.10.0"
 
   # ---------------------------------------------------------
-  # RESOURCE OPTIMIZATION (Fixes "Insufficient CPU")
+  # RESOURCE OPTIMIZATION
   # ---------------------------------------------------------
   webserver:
     resources:
@@ -102,20 +102,34 @@ airflow:
       - name: gcs-dags
         mountPath: /opt/airflow/dags
 
-  # 4. ArgoCD / Job Specific Fixes
-  createUserJob:
-    useHelmHooks: false
-    resources:
-      requests:
-        cpu: "50m"
-        memory: "128Mi"
-
+  # ---------------------------------------------------------
+  # 4. FIXED JOBS (Added Cloud SQL Proxy)
+  # ---------------------------------------------------------
   migrateDatabaseJob:
     useHelmHooks: false
     resources:
       requests:
         cpu: "50m"
         memory: "128Mi"
+    extraContainers:
+      - name: cloud-sql-proxy
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+        args: ["--port=5432", "gcp-another-pro:us-east4:vamsi"]
+        securityContext:
+          runAsNonRoot: true
+
+  createUserJob:
+    useHelmHooks: false
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "128Mi"
+    extraContainers:
+      - name: cloud-sql-proxy
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+        args: ["--port=5432", "gcp-another-pro:us-east4:vamsi"]
+        securityContext:
+          runAsNonRoot: true
 
   # 5. DAG Storage
   dags:
@@ -132,15 +146,10 @@ airflow:
     annotations:
       iam.gke.io/gcp-service-account: "airflow-gsa@gcp-another-pro.iam.gserviceaccount.com"
 
-  # ---------------------------------------------------------
-  # LOG STORAGE (Fixes "volume binding" deadlock)
-  # ---------------------------------------------------------
+  # 7. LOG STORAGE
   logs:
     persistence:
-      enabled: false
-      size: 5Gi
-      storageClassName: "standard" # This forces Immediate binding
-
+      enabled: false 
   config:
     core:
       load_examples: "False"
