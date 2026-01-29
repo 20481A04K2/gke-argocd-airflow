@@ -18,21 +18,24 @@ airflow:
       tag: "2.10.0"
 
   # ---------------------------------------------------------
-  # WEB SERVER (Final Fix for Probe Failures)
+  # WEB SERVER (Fixed Schema for Airflow 1.15.0)
   # ---------------------------------------------------------
   webserver:
     startupProbe:
-      enabled: true
-      initialDelaySeconds: 30
+      # We removed 'enabled' and 'initialDelaySeconds' to satisfy the schema
+      # 60 failures * 10s period = 600 seconds (10 minutes) total time to start
+      failureThreshold: 60  
       periodSeconds: 10
       timeoutSeconds: 20
-      failureThreshold: 60  # Gives Webserver 10 minutes to start
     livenessProbe:
-      initialDelaySeconds: 30
+      # Removing initialDelaySeconds here as well for safety
       periodSeconds: 30
+      timeoutSeconds: 20
+      failureThreshold: 5
     readinessProbe:
-      initialDelaySeconds: 30
       periodSeconds: 30
+      timeoutSeconds: 20
+      failureThreshold: 5
     resources:
       requests:
         cpu: "100m"
@@ -89,7 +92,7 @@ airflow:
       enabled: false
 
   # ---------------------------------------------------------
-  # TRIGGERER (Added Proxy to fix Init Stage)
+  # TRIGGERER
   # ---------------------------------------------------------
   triggerer:
     resources:
@@ -128,7 +131,7 @@ airflow:
         mountPath: /opt/airflow/dags
 
   # ---------------------------------------------------------
-  # 4. JOBS (Bypass hooks for ArgoCD)
+  # JOBS
   # ---------------------------------------------------------
   migrateDatabaseJob:
     useHelmHooks: false
