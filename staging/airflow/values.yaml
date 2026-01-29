@@ -95,6 +95,8 @@ airflow:
   # TRIGGERER
   # ---------------------------------------------------------
   triggerer:
+    waitForMigrations:
+      enabled: false  # ADD THIS LINE
     resources:
       requests:
         cpu: "50m"
