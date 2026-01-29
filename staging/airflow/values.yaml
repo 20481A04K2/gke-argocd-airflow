@@ -5,7 +5,7 @@ airflow:
   redis:
     enabled: false
 
-  # 2. Database Connection
+  # 2. Database Connection (Using ExternalSecret)
   data:
     metadataSecretName: "airflow-db-secrets"
 
@@ -18,13 +18,21 @@ airflow:
       tag: "2.10.0"
 
   # ---------------------------------------------------------
-  # RESOURCE OPTIMIZATION
+  # WEB SERVER (Fixed Health Checks)
   # ---------------------------------------------------------
   webserver:
+    livenessProbe:
+      initialDelaySeconds: 180  # Increased to prevent SIGTERM
+      timeoutSeconds: 30
+      failureThreshold: 10
+    readinessProbe:
+      initialDelaySeconds: 180
+      timeoutSeconds: 30
+      failureThreshold: 10
     resources:
       requests:
         cpu: "100m"
-        memory: "256Mi"
+        memory: "512Mi"
     podAnnotations:
       gke-gcsfuse/volumes: "true"
     extraVolumes:
@@ -50,11 +58,14 @@ airflow:
         - name: airflow-ui
           port: 8080
 
+  # ---------------------------------------------------------
+  # SCHEDULER
+  # ---------------------------------------------------------
   scheduler:
     resources:
       requests:
         cpu: "100m"
-        memory: "256Mi"
+        memory: "512Mi"
     podAnnotations:
       gke-gcsfuse/volumes: "true"
     extraVolumes:
@@ -73,23 +84,33 @@ airflow:
     waitForMigrations:
       enabled: false
 
+  # ---------------------------------------------------------
+  # TRIGGERER (Fixed: Added Cloud SQL Proxy)
+  # ---------------------------------------------------------
+  triggerer:
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "256Mi"
+    extraContainers:
+      - name: cloud-sql-proxy
+        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
+        args: ["--port=5432", "gcp-another-pro:us-east4:vamsi"]
+
   statsd:
     resources:
       requests:
         cpu: "50m"
         memory: "128Mi"
 
-  triggerer:
-    resources:
-      requests:
-        cpu: "50m"
-        memory: "128Mi"
-
+  # ---------------------------------------------------------
+  # WORKERS
+  # ---------------------------------------------------------
   workers:
     resources:
       requests:
         cpu: "100m"
-        memory: "256Mi"
+        memory: "512Mi"
     podAnnotations:
       gke-gcsfuse/volumes: "true"
     extraVolumes:
@@ -103,7 +124,7 @@ airflow:
         mountPath: /opt/airflow/dags
 
   # ---------------------------------------------------------
-  # 4. FIXED JOBS (Added Cloud SQL Proxy)
+  # 4. JOBS
   # ---------------------------------------------------------
   migrateDatabaseJob:
     useHelmHooks: false
@@ -115,8 +136,6 @@ airflow:
       - name: cloud-sql-proxy
         image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
         args: ["--port=5432", "gcp-another-pro:us-east4:vamsi"]
-        securityContext:
-          runAsNonRoot: true
 
   createUserJob:
     useHelmHooks: false
@@ -128,8 +147,6 @@ airflow:
       - name: cloud-sql-proxy
         image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
         args: ["--port=5432", "gcp-another-pro:us-east4:vamsi"]
-        securityContext:
-          runAsNonRoot: true
 
   # 5. DAG Storage
   dags:
@@ -146,7 +163,7 @@ airflow:
     annotations:
       iam.gke.io/gcp-service-account: "airflow-gsa@gcp-another-pro.iam.gserviceaccount.com"
 
-  # 7. LOG STORAGE
+  # 7. LOG STORAGE & CONFIG
   logs:
     persistence:
       enabled: false 
