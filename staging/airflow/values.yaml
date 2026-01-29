@@ -23,7 +23,7 @@ airflow:
   webserver:
     resources:
       requests:
-        cpu: "100m"     # Reduced from default to fit small nodes
+        cpu: "100m"
         memory: "256Mi"
     podAnnotations:
       gke-gcsfuse/volumes: "true"
@@ -53,7 +53,7 @@ airflow:
   scheduler:
     resources:
       requests:
-        cpu: "100m"     # Reduced
+        cpu: "100m"
         memory: "256Mi"
     podAnnotations:
       gke-gcsfuse/volumes: "true"
@@ -73,7 +73,6 @@ airflow:
     waitForMigrations:
       enabled: false
 
-  # Statsd and Triggerer often take up space; keep them tiny
   statsd:
     resources:
       requests:
@@ -86,7 +85,6 @@ airflow:
         cpu: "50m"
         memory: "128Mi"
 
-  # KubernetesExecutor Worker Config
   workers:
     resources:
       requests:
@@ -134,12 +132,14 @@ airflow:
     annotations:
       iam.gke.io/gcp-service-account: "airflow-gsa@gcp-another-pro.iam.gserviceaccount.com"
 
-  # 7. LOG STORAGE (Reduced size for faster provisioning)
+  # ---------------------------------------------------------
+  # LOG STORAGE (Fixes "volume binding" deadlock)
+  # ---------------------------------------------------------
   logs:
     persistence:
       enabled: true
-      size: 10Gi
-      storageClassName: "standard-rwo"
+      size: 5Gi
+      storageClassName: "standard" # This forces Immediate binding
 
   config:
     core:
