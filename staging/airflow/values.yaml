@@ -5,7 +5,7 @@ airflow:
   redis:
     enabled: false
 
-  # 2. Database Connection (Using ExternalSecret created in templates/)
+  # 2. Database Connection
   data:
     metadataSecretName: "airflow-db-secrets"
 
@@ -17,32 +17,14 @@ airflow:
       repository: "apache/airflow"
       tag: "2.10.0"
 
-  # Shared Configuration for GCS Fuse and Cloud SQL Proxy
-  # Used by Scheduler, Webserver, and Workers
-  common:
-    podAnnotations:
-      gke-gcsfuse/volumes: "true"
-    extraVolumes:
-      - name: gcs-dags
-        csi:
-          driver: gcsfuse.csi.storage.gke.io
-          volumeAttributes:
-            bucketName: "dag-bucket213"
-            mountOptions: "implicit-dirs"
-    extraVolumeMounts:
-      - name: gcs-dags
-        mountPath: /opt/airflow/dags
-        readOnly: true
-    extraContainers:
-      - name: cloud-sql-proxy
-        image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
-        args:
-          - "--port=5432"
-          - "gcp-another-pro:us-east4:vamsi"
-        securityContext:
-          runAsNonRoot: true
-
+  # ---------------------------------------------------------
+  # RESOURCE OPTIMIZATION (Fixes "Insufficient CPU")
+  # ---------------------------------------------------------
   webserver:
+    resources:
+      requests:
+        cpu: "100m"     # Reduced from default to fit small nodes
+        memory: "256Mi"
     podAnnotations:
       gke-gcsfuse/volumes: "true"
     extraVolumes:
@@ -69,6 +51,10 @@ airflow:
           port: 8080
 
   scheduler:
+    resources:
+      requests:
+        cpu: "100m"     # Reduced
+        memory: "256Mi"
     podAnnotations:
       gke-gcsfuse/volumes: "true"
     extraVolumes:
@@ -87,18 +73,53 @@ airflow:
     waitForMigrations:
       enabled: false
 
-  # KubernetesExecutor creates pods dynamically, they also need the GCS mount
-  workers:
-    waitForMigrations:
-      enabled: false
+  # Statsd and Triggerer often take up space; keep them tiny
+  statsd:
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "128Mi"
 
-  # 4. ArgoCD Specific Fixes
+  triggerer:
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "128Mi"
+
+  # KubernetesExecutor Worker Config
+  workers:
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "256Mi"
+    podAnnotations:
+      gke-gcsfuse/volumes: "true"
+    extraVolumes:
+      - name: gcs-dags
+        csi:
+          driver: gcsfuse.csi.storage.gke.io
+          volumeAttributes:
+            bucketName: "dag-bucket213"
+    extraVolumeMounts:
+      - name: gcs-dags
+        mountPath: /opt/airflow/dags
+
+  # 4. ArgoCD / Job Specific Fixes
   createUserJob:
     useHelmHooks: false
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "128Mi"
+
   migrateDatabaseJob:
     useHelmHooks: false
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "128Mi"
 
-  # 5. DAG Storage (Persistence disabled because we use GCS Fuse CSI)
+  # 5. DAG Storage
   dags:
     gitSync:
       enabled: false
@@ -113,10 +134,11 @@ airflow:
     annotations:
       iam.gke.io/gcp-service-account: "airflow-gsa@gcp-another-pro.iam.gserviceaccount.com"
 
+  # 7. LOG STORAGE (Reduced size for faster provisioning)
   logs:
     persistence:
       enabled: true
-      size: 50Gi
+      size: 10Gi
       storageClassName: "standard-rwo"
 
   config:
