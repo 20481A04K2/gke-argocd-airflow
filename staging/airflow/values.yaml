@@ -137,7 +137,7 @@ airflow:
   # ---------------------------------------------------------
   logs:
     persistence:
-      enabled: true
+      enabled: false
       size: 5Gi
       storageClassName: "standard" # This forces Immediate binding
 
