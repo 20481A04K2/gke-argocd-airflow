@@ -5,7 +5,7 @@ airflow:
   redis:
     enabled: false
 
-  # 2. Database Connection (Using ExternalSecret)
+  # 2. Database Connection
   data:
     metadataSecretName: "airflow-db-secrets"
 
@@ -18,17 +18,21 @@ airflow:
       tag: "2.10.0"
 
   # ---------------------------------------------------------
-  # WEB SERVER (Fixed Health Checks)
+  # WEB SERVER (Final Fix for Probe Failures)
   # ---------------------------------------------------------
   webserver:
+    startupProbe:
+      enabled: true
+      initialDelaySeconds: 30
+      periodSeconds: 10
+      timeoutSeconds: 20
+      failureThreshold: 60  # Gives Webserver 10 minutes to start
     livenessProbe:
-      initialDelaySeconds: 180  # Increased to prevent SIGTERM
-      timeoutSeconds: 30
-      failureThreshold: 10
+      initialDelaySeconds: 30
+      periodSeconds: 30
     readinessProbe:
-      initialDelaySeconds: 180
-      timeoutSeconds: 30
-      failureThreshold: 10
+      initialDelaySeconds: 30
+      periodSeconds: 30
     resources:
       requests:
         cpu: "100m"
@@ -59,7 +63,7 @@ airflow:
           port: 8080
 
   # ---------------------------------------------------------
-  # SCHEDULER
+  # SCHEDULER (Verified Working)
   # ---------------------------------------------------------
   scheduler:
     resources:
@@ -85,7 +89,7 @@ airflow:
       enabled: false
 
   # ---------------------------------------------------------
-  # TRIGGERER (Fixed: Added Cloud SQL Proxy)
+  # TRIGGERER (Added Proxy to fix Init Stage)
   # ---------------------------------------------------------
   triggerer:
     resources:
@@ -124,14 +128,10 @@ airflow:
         mountPath: /opt/airflow/dags
 
   # ---------------------------------------------------------
-  # 4. JOBS
+  # 4. JOBS (Bypass hooks for ArgoCD)
   # ---------------------------------------------------------
   migrateDatabaseJob:
     useHelmHooks: false
-    resources:
-      requests:
-        cpu: "50m"
-        memory: "128Mi"
     extraContainers:
       - name: cloud-sql-proxy
         image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
@@ -139,10 +139,6 @@ airflow:
 
   createUserJob:
     useHelmHooks: false
-    resources:
-      requests:
-        cpu: "50m"
-        memory: "128Mi"
     extraContainers:
       - name: cloud-sql-proxy
         image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
@@ -163,7 +159,7 @@ airflow:
     annotations:
       iam.gke.io/gcp-service-account: "airflow-gsa@gcp-another-pro.iam.gserviceaccount.com"
 
-  # 7. LOG STORAGE & CONFIG
+  # 7. LOG STORAGE
   logs:
     persistence:
       enabled: false 
