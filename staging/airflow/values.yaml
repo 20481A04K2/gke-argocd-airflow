@@ -5,7 +5,7 @@ airflow:
   redis:
     enabled: false
 
-  # 2. Database Connection
+  # 2. Database Connection (Using the secret from External Secrets)
   data:
     metadataSecretName: "airflow-db-secrets"
 
@@ -18,17 +18,27 @@ airflow:
       tag: "2.10.0"
 
   # ---------------------------------------------------------
-  # WEB SERVER (Fixed Schema for Airflow 1.15.0)
+  # DAGs via GitSync (Public Repo)
+  # ---------------------------------------------------------
+  dags:
+    persistence:
+      enabled: false # We use gitSync instead of a PersistentVolume
+    gitSync:
+      enabled: true
+      repo: "https://github.com/20481A04K2/gke-argocd-airflow.git"
+      branch: "main"
+      subPath: "bucket"  # The folder inside your repo where DAGs live
+      wait: 60           # Sync every 60 seconds
+
+  # ---------------------------------------------------------
+  # WEB SERVER
   # ---------------------------------------------------------
   webserver:
     startupProbe:
-      # We removed 'enabled' and 'initialDelaySeconds' to satisfy the schema
-      # 60 failures * 10s period = 600 seconds (10 minutes) total time to start
       failureThreshold: 60  
       periodSeconds: 10
       timeoutSeconds: 20
     livenessProbe:
-      # Removing initialDelaySeconds here as well for safety
       periodSeconds: 30
       timeoutSeconds: 20
       failureThreshold: 5
@@ -40,17 +50,7 @@ airflow:
       requests:
         cpu: "100m"
         memory: "512Mi"
-    podAnnotations:
-      gke-gcsfuse/volumes: "true"
-    extraVolumes:
-      - name: gcs-dags
-        csi:
-          driver: gcsfuse.csi.storage.gke.io
-          volumeAttributes:
-            bucketName: "dag-bucket213"
-    extraVolumeMounts:
-      - name: gcs-dags
-        mountPath: /opt/airflow/dags
+    # Note: GCS annotations, volumes, and mounts are REMOVED
     extraContainers:
       - name: cloud-sql-proxy
         image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
@@ -66,24 +66,14 @@ airflow:
           port: 8080
 
   # ---------------------------------------------------------
-  # SCHEDULER (Verified Working)
+  # SCHEDULER
   # ---------------------------------------------------------
   scheduler:
     resources:
       requests:
         cpu: "100m"
         memory: "512Mi"
-    podAnnotations:
-      gke-gcsfuse/volumes: "true"
-    extraVolumes:
-      - name: gcs-dags
-        csi:
-          driver: gcsfuse.csi.storage.gke.io
-          volumeAttributes:
-            bucketName: "dag-bucket213"
-    extraVolumeMounts:
-      - name: gcs-dags
-        mountPath: /opt/airflow/dags
+    # Note: GCS annotations, volumes, and mounts are REMOVED
     extraContainers:
       - name: cloud-sql-proxy
         image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
@@ -96,7 +86,7 @@ airflow:
   # ---------------------------------------------------------
   triggerer:
     waitForMigrations:
-      enabled: false  # ADD THIS LINE
+      enabled: false
     resources:
       requests:
         cpu: "50m"
@@ -120,17 +110,6 @@ airflow:
       requests:
         cpu: "100m"
         memory: "512Mi"
-    podAnnotations:
-      gke-gcsfuse/volumes: "true"
-    extraVolumes:
-      - name: gcs-dags
-        csi:
-          driver: gcsfuse.csi.storage.gke.io
-          volumeAttributes:
-            bucketName: "dag-bucket213"
-    extraVolumeMounts:
-      - name: gcs-dags
-        mountPath: /opt/airflow/dags
 
   # ---------------------------------------------------------
   # JOBS
@@ -149,14 +128,7 @@ airflow:
         image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
         args: ["--port=5432", "gcp-another-pro:us-east4:vamsi"]
 
-  # 5. DAG Storage
-  dags:
-    gitSync:
-      enabled: false
-    persistence:
-      enabled: false
-
-  # 6. Workload Identity & RBAC
+  # 6. Workload Identity & RBAC (Required for Cloud SQL Proxy)
   rbac:
     create: true
   serviceAccount:
@@ -168,7 +140,8 @@ airflow:
   logs:
     persistence:
       enabled: false 
+
   config:
     core:
       load_examples: "False"
-      dags_folder: "/opt/airflow/dags"
+      # dags_folder is managed automatically by GitSync
