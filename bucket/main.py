@@ -19,7 +19,7 @@ def print_hello():
 
 # Define the DAG
 with DAG(
-    'hello_world_gke',
+    'hello_world_gke123',
     default_args=default_args,
     description='Simple Hello World for GKE/GCS setup',
     schedule_interval=timedelta(days=1), # Runs daily, or trigger manually
