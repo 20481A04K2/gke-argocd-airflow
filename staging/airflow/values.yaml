@@ -54,7 +54,7 @@ airflow:
     extraContainers:
       - name: cloud-sql-proxy
         image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
-        args: ["--port=5432", "gcp-another-pro:us-east4:vamsi"]
+        args: ["--port=5432", "gcp-another-pro:asia-southeast1:vamsi"]
     waitForMigrations:
       enabled: false
     service:
@@ -77,7 +77,7 @@ airflow:
     extraContainers:
       - name: cloud-sql-proxy
         image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
-        args: ["--port=5432", "gcp-another-pro:us-east4:vamsi"]
+        args: ["--port=5432", "gcp-another-pro:asia-southeast1:vamsi"]
     waitForMigrations:
       enabled: false
 
@@ -94,7 +94,7 @@ airflow:
     extraContainers:
       - name: cloud-sql-proxy
         image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
-        args: ["--port=5432", "gcp-another-pro:us-east4:vamsi"]
+        args: ["--port=5432", "gcp-another-pro:asia-southeast1:vamsi"]
 
   statsd:
     resources:
@@ -119,14 +119,14 @@ airflow:
     extraContainers:
       - name: cloud-sql-proxy
         image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
-        args: ["--port=5432", "gcp-another-pro:us-east4:vamsi"]
+        args: ["--port=5432", "gcp-another-pro:asia-southeast1:vamsi"]
 
   createUserJob:
     useHelmHooks: false
     extraContainers:
       - name: cloud-sql-proxy
         image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.11.0
-        args: ["--port=5432", "gcp-another-pro:us-east4:vamsi"]
+        args: ["--port=5432", "gcp-another-pro:asia-southeast1:vamsi"]
 
   # 6. Workload Identity & RBAC (Required for Cloud SQL Proxy)
   rbac:
